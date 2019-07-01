@@ -1,0 +1,362 @@
+===== GITHUB DESKTOP =====
+1- Descargar y seguir instrucciones
+
+https://desktop.github.com/
+
+===== GITHUB CONSOLA =====
+===== CLONAR PROYECTO EN GITHUB ====
+
+nota: instalar node.js and git
+
+1- Crer carpeta e ingresa dentro
+2- git clone "urlRepoGithub"
+
+===== ejemplo ======
+
+PC Felipe@DESKTOP-ODNJA3Q MINGW64 ~
+$ cd ../../
+
+PC Felipe@DESKTOP-ODNJA3Q MINGW64 /c
+$ cd xampp/
+
+PC Felipe@DESKTOP-ODNJA3Q MINGW64 /c/xampp
+$ cd htdocs/
+
+PC Felipe@DESKTOP-ODNJA3Q MINGW64 /c/xampp/htdocs
+$ cd ffarias-git/
+
+PC Felipe@DESKTOP-ODNJA3Q MINGW64 /c/xampp/htdocs/ffarias-git
+$ git clone https://github.com/EsperanzaHerrera/biblioteca
+
+
+
+==== PASOS CREAR CRUD IONICFIREBASE ====
+
+1- Crear nuevo proyecto en firebase = EPE 3 Y 4
+
+  * Database => 'nueva database'
+  * 'Seleccionar modo de prueba'
+  * Configuración del Pryecto => 'apartado web' = 'Datos de conf'
+
+2- Ir a la consola o terminal
+
+> ionic start nombreproyecto blank --type=angular
+  *instalar sdk para generar app android o ios
+
+3- Instalar dependencias
+   
+> npm i firebase@6.3.2 angularfire2 -S
+> code .  (abre vscode proyecto)
+> ionic serve   (inicia servidor)
+
+4- configurar firebase en la App
+
+   * ir a folder -> 'environment' => 'environment.ts' y editar y guardar
+   * agregar dentro la conf. desde firebase tal cual el ejemplo:
+
+export const environment = {
+  production: false,
+  firebaseConfig : {
+    apiKey: "AIzaSyDX2EBvkAddGrR1fduXdm1TX8ky5zMyIms",
+    authDomain: "epe-3-y-4-biblioteca.firebaseapp.com",
+    databaseURL: "https://epe-3-y-4-biblioteca.firebaseio.com",
+    projectId: "epe-3-y-4-biblioteca",
+    storageBucket: "epe-3-y-4-biblioteca.appspot.com",
+    messagingSenderId: "105720174560",
+    appId: "1:105720174560:web:6633bfcd85b88abf"
+  }
+};
+
+5- configurar modulos
+   
+   * ir a app.modules.ts editar y guardar como el ej.
+
+import { AngularFireModule } from 'angularfire2';
+import { environment } from '../environments/environment';
+import { AngularFirestoreModule } from 'angularfire2/firestore';
+
+  imports: [BrowserModule, IonicModule.forRoot(), AppRoutingModule, 
+    AngularFireModule.initializeApp(environment.firebaseConfig),
+    AngularFirestoreModule
+  ],
+
+
+6- ir a la consola nuevamente (g = generate)
+  
+> ionic g page pages/todoDetails
+> ionic g s services/todo
+> ionic serve 
+
+* Creamos manualmente nuestra interface dentro de la carpeta ./app/ y un archivo así:  
+
+./app/models/task.interface.ts
+
+* configuramos este archivo task.interface.ts
+
+export interface TaskI {
+    id?: string;
+    task: string;
+    priority: number;
+}
+
+
+7- Configurar Routing 'app-routing.modules.ts'
+
+const routes: Routes = [
+  { path: '', redirectTo: 'home', pathMatch: 'full' },
+  { path: 'home', loadChildren: './home/home.module#HomePageModule' },
+  { path: 'details/:id', loadChildren: 
+  './pages/todo-details/todo-details.module#TodoDetailsPageModule' },
+  { path:'details', loadChildren: 
+  './pages/todo-details/todo-details.module#TodoDetailsPageModule' }
+];
+  
+
+8- Configurar 'todo.service.ts' = 'Acá van los metodos que se conectarán con firebase'
+
+import { Injectable } from '@angular/core';
+//modulo angular para conexiones y configuraciones
+import { AngularFirestore, AngularFirestoreCollection } from'angularfire2/firestore';
+//observador desde la librería rxjs
+import { Observable } from 'rxjs';
+//operadores
+import { map } from 'rxjs/operators';
+//Interfaz
+import { TaskI } from '../models/task.interface';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class TodoService {
+  //creamos 2 propertys - propiedades
+  private todosCollection: AngularFirestoreCollection<TaskI>;
+  //propiedad con observador
+  private todos: Observable<TaskI[]>;
+  //constructor que conecta a la bd de firebase
+  constructor(db:AngularFirestore) {
+    //coleccion que trae las consultas
+    //<TaskI>('nombretabla');
+    this.todosCollection = db.collection<TaskI>('todos');
+    this.todos = this.todosCollection.snapshotChanges().pipe(map(
+      //iterar sobre todos los documents 
+      //devuelve un objeto de documentos 
+      //para recuperar id
+      actions => {
+        return actions.map(a => {
+          const data = a.payload.doc.data();
+          const id = a.payload.doc.id;
+          // ... progpagacion
+          return { id, ...data };
+        });
+      }
+    ));
+  }
+  //METODOS CRUD
+  //recibe todos los datos
+  //del documento-
+  getTodos() {
+    return this.todos;
+  }
+  //leer - listar
+  getTodo(id:string) {
+    return this.todosCollection.doc<TaskI>(id).valueChanges();
+  }
+  //modificar
+  updateTodo(todo:TaskI, id: string) {
+    return this.todosCollection.doc(id).update(todo);
+  }
+  //agregar
+  addTodo(todo:TaskI) {
+    return this.todosCollection.add(todo);
+  }
+  //eliminar
+  removeTodo( id: string ){
+    return this.todosCollection.doc(id).delete();
+  }
+}
+
+
+9- modificaciones en el front home-page.html,
+   quedaría de la siguiente forma.
+
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-title>
+      Ionic CRUD-TOODS
+    </ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-list>
+    <!-- for para recorrer todos -->
+    <ion-item-sliding *ngFor="let todo of todos">
+      <ion-item lines="inset" button[routerLink]="['/details', todo.id]" >
+        <ion-label>
+          {{todo.task}}
+        </ion-label>
+      </ion-item>
+      <ion-item-options side="end">
+        <ion-item-option (click)="onRemove(item)" color="secondary">
+          <ion-icon name="checkmark" slot="end"></ion-icon>
+        </ion-item-option>
+      </ion-item-options>
+    </ion-item-sliding>
+  </ion-list>
+  <!-- boton para añadir nueva tarea -->
+  <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+    <ion-fab-button routerLink="/details" routerDirection="fordward">
+      <ion-icon name="add"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
+</ion-content>
+
+
+10- editamos nuestro home.page.ts
+    debe quedar de la siguiente manera:
+
+
+import { Component, OnInit } from '@angular/core';
+//interface
+import { TaskI } from '../models/task.interface';
+//service
+import { TodoService } from '../services/todo.service';
+
+@Component({
+  selector: 'app-home',
+  templateUrl: 'home.page.html',
+  styleUrls: ['home.page.scss'],
+})
+export class HomePage implements OnInit {
+  todos: TaskI[]; //array todos (propiedad)
+  constructor(private todoService:TodoService) {} //injectamos service
+  //metodo ngOnInit
+  //llamar al metodo
+  //desde el service
+  //para recuperar todas las tareas
+  ngOnInit(){
+    this.todoService.getTodos().subscribe(res => {
+      //imprimir la respuesta
+      //console.log('Tareas', res);
+      this.todos = res
+    })
+  }
+}
+
+11- todo-details.page.html
+    copiamos todo desde home.page.html
+    y lo pegamos en todo-details.page.html
+
+<ion-header>
+    <ion-toolbar color="primary">
+      <ion-title>
+        TodoDetails
+      </ion-title>
+    </ion-toolbar>
+  </ion-header>
+  
+  <ion-content>
+    <ion-list lines="full">
+      <ion-item *ngIf="todo"> <!-- if para comprobar si existe -->
+        <ion-input required type="text" placeholder="Task" [(ngModel)]="todo.task"></ion-input>
+      </ion-item>
+      <ion-item *ngIf="todo">
+          <ion-input required type="number" placeholder="Priority" [(ngModel)]="todo.priority"></ion-input>
+        </ion-item>
+    </ion-list>
+    <!-- bton guardar -->
+    <ion-button expand="full" (click)="saveTodo()">Save</ion-button>
+    <!-- boton para eliminar -->
+    <ion-fab vertical="bottom" horizontal="end" slot="fixed" color="danger">
+      <ion-fab-button color="danger" routerLink="/" routerDirection="fordward" (click)="onRemove(todoId)">
+        <ion-icon name="trash"></ion-icon>
+      </ion-fab-button>
+    </ion-fab>
+  </ion-content>  
+ 
+
+12- todo-details.page.ts
+    dejar de la siguiente forma:
+
+import { Component, OnInit } from '@angular/core';
+//Task Interface
+import { TaskI } from '../../models/task.interface';
+//servicios
+import { TodoService } from '../../services/todo.service';
+//ruta
+import { ActivatedRoute } from '@angular/router';
+//navC
+import { NavController, LoadingController } from '@ionic/angular';
+
+@Component({
+  selector: 'app-todo-details',
+  templateUrl: './todo-details.page.html',
+  styleUrls: ['./todo-details.page.scss'],
+})
+export class TodoDetailsPage implements OnInit {
+  //creamos propiedad todo
+  todo: TaskI = {
+    task: '',
+    priority: 0
+  };
+  //propiedad
+  todoId = null;
+
+  constructor(
+    private route: ActivatedRoute, private nav: NavController,
+    private todoService: TodoService, private loadingController: LoadingController
+  ) { } //injectamos nuestra ruta, nav, service y loading contr.
+
+  //metodo
+  ngOnInit() {
+    this.todoId = this.route.snapshot.params['id'];
+    //si hay algo, devuelve ..
+    if(this.todoId){
+      //si hay algo llamamos
+      //al metodo loadTodo 
+      this.loadTodo();
+    }
+  }
+
+  //metodo cargar
+  async loadTodo(){
+    const loading = await this.loadingController.create({
+      message: 'Loading....' //le pasamos un objeto mensaje
+    });
+    //muestra minimodal con 'loading....'
+    await loading.present();
+    this.todoService.getTodo(this.todoId).subscribe(res => {
+      loading.dismiss();
+      this.todo = res;
+    });
+  }
+  //guardar
+  async saveTodo(){
+    const loading = await this.loadingController.create({
+      message: 'Saving....' //le pasamos un objeto mensaje
+    });    
+    //muestra minimodal con 'saving....'
+    await loading.present();
+    //comprobacion si es que existe id
+    if(this.todoId){
+      //actualizar
+      this.todoService.updateTodo(this.todo, this.todoId).then(()=> { // devuelve una promise o promesa
+        loading.dismiss();
+        this.nav.navigateForward('/');
+      });
+    } else {
+      //agregar nuevo
+      this.todoService.addTodo(this.todo).then(()=> { // devuelve una promise o promesa
+        loading.dismiss();
+        this.nav.navigateForward('/');
+      });
+    }
+  }
+
+  //metodo eliminar
+  onRemove(idTodo: string){
+    //console.log(todo);
+    this.todoService.removeTodo(idTodo);
+  }
+
+}
